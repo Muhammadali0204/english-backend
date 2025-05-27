@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
 from app.core.deps import CurrentUserDep
-from app.models.models import User
+from app.core.enums import FriendshipStatus
+from app.models.models import Friendship, User
 from app.schemas.auth_schema import ChangePasswordSchema, LoginSchema, RegisterSchema
 from app.core.security import create_access_token, hash_password, verify_password
 
@@ -52,18 +53,19 @@ async def register(credentials: RegisterSchema):
 
 @router.get("/me", status_code=status.HTTP_200_OK)
 async def get_current_user(user: CurrentUserDep):
+    requests_count = await Friendship.filter(
+        receiver=user, status=FriendshipStatus.pending
+    ).count()
     return {
         "username": user.username,
         "name": user.name,
-        "completed_unit": user.completed_unit
+        "completed_unit": user.completed_unit,
+        "requests_count": requests_count,
     }
 
 
-@router.post('/change-password', status_code=status.HTTP_200_OK)
-async def change_password(
-    user: CurrentUserDep,
-    credentials: ChangePasswordSchema
-):
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+async def change_password(user: CurrentUserDep, credentials: ChangePasswordSchema):
     user.password = hash_password(credentials.new_password)
     await user.save()
     return {

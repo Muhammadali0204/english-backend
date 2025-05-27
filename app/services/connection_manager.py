@@ -15,13 +15,13 @@ class ConnectionManager:
         self.active_connections.pop(username, None)
         print(f"User {username} disconnected.")
 
-    async def send_message(self, username: str, type: str, data: Dict):
-        try:
-            await self.active_connections[username].send_json(
-                {
-                    'type': type,
-                    'data': data
-                }
-            )
-        except:
-            pass
+    async def send_message(self, username: str, type: str, data: Dict = {}):
+        ws = self.active_connections.get(username)
+        if ws:
+            try:
+                await ws.send_json(
+                    {"type": type, "data": data}
+                )
+                return True
+            except:
+                return False

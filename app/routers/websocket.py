@@ -1,8 +1,9 @@
-import asyncio
 from fastapi import APIRouter, Query, WebSocket
 
-from app.core.config import CONNECTION_MANAGER
+from app.core.config import CONNECTION_MANAGER, GAMES
 from app.core.deps import get_current_user_from_ws_token
+from app.core.enums import WSMessageTypes
+from app.services.game_manager import GameSession
 
 
 router = APIRouter()
@@ -22,7 +23,17 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     try:
         while True:
             data = await websocket.receive_json()
-            print(f"Received data: {data}")
+            if data['type'] == WSMessageTypes.SEND_ANSWER:
+                try :
+                    game_session: GameSession = GAMES.get(data['data']['game_username'])
+                    if game_session:
+                        await game_session.submit_answer(
+                            websocket,
+                            user.username,
+                            data['data']['answer']
+                        )
+                except:
+                    pass
     except Exception as e:
         print(f"Error: {e}")
     finally:

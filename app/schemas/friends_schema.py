@@ -16,3 +16,9 @@ class OutPutRequest(BaseModel):
     id: int
     requester: OutPutUser
     status: FriendshipStatus
+
+
+class OutPutMyRequest(BaseModel):
+    id: int
+    receiver: OutPutUser
+    status: FriendshipStatus

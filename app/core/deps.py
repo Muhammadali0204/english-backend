@@ -60,7 +60,9 @@ OptionalUserDep = Annotated[Optional[User], Depends(get_optional_user)]
 
 async def get_current_user_from_ws_token(token: str) -> User:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
         username = payload.get("sub")
         if not username:
             raise ValueError("Invalid token payload")

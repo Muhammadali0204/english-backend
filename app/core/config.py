@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     UNITS_IN_ONE_BOOK: int = 30
     BOOKS_COUNT: int = 6
 
+    ROUND_DURATION: int = 20
+    ROUND_WORDS_COUNT: int = 5
+
     @computed_field
     @property
     def POSTGRESQL_DATABASE_URI(self) -> str:
@@ -53,4 +56,3 @@ DATABASE_CONFIG = {
 CONNECTION_MANAGER = ConnectionManager()
 
 GAMES = {}
-CONNECTIONS = ConnectionManager()

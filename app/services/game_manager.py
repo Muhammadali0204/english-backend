@@ -2,39 +2,43 @@ import asyncio
 import datetime
 from typing import Dict, List
 from fastapi import WebSocket
-from app.models.models import User
-from app.core.enums import GameStatus
+from app.core.config import GAMES
+from app.models.models import User, Word
+from app.core.enums import GameStatus, WSMessageTypes
 from datetime import datetime as innerdatetime, timedelta
 
 
 class GameSession:
-
     def __init__(
         self,
         owner: User,
         owner_ws: WebSocket,
-        question_words: List[str],
-        answer_words: List[str],
+        words: List[dict],
         round_duration: int,
     ):
-        self.players = {
-            owner.username: {
-                "user": owner,
-                "point": 0,
-                "ws": owner_ws,
-                "seconds": 0
-            }
-        }
+        self.players = [
+            {"user": owner, "point": 0, "ws": owner_ws, "seconds": 0}
+        ]
         self.owner = owner
-        self.question_words = question_words
-        self.answer_words = answer_words
+        self.words: List[Word] = words
         self.current_word_id = 0
         self.game_status = GameStatus.pending
         self.round_duration = round_duration
+        self.started = False
         self.running_task = None
         self.answered_players = set()
         self.lock = asyncio.Lock()
-    
+
+    def broadcast(self, type: str, data: Dict):
+        for player in self.players:
+            self.send_to(player['ws'], type=type, data=data)
+
+    def send_to(self, ws: WebSocket, type: str, data: Dict = {}):
+        try:
+            asyncio.create_task(ws.send_json({"type": type, "data": data}))
+        except:
+            pass
+
     async def start_game(self):
         if len(self.players) > 1:
             async with self.lock:
@@ -42,68 +46,79 @@ class GameSession:
                 self.running_task = asyncio.create_task(self.round_timer_loop())
         else:
             return False
-    
+
     async def round_timer_loop(self):
-        async with self.lock:
-            await self.broadcast(
-                'game start',
-                {
-                    'users_count': len(self.players),
-                    'words_count': len(self.question_words)
+        self.broadcast(
+            WSMessageTypes.GAME_STARTED,
+            {
+                "users_count": len(self.players),
+            },
+        )
+        await asyncio.sleep(3)
+        for index, word in enumerate(self.words):
+            async with self.lock:
+                self.started = True
+                self.answered_players = set()
+                self.current_word = word.data
+                self.current_deadline = innerdatetime.now(
+                    datetime.timezone.utc
+                ) + timedelta(seconds=self.round_duration)
+            self.broadcast(
+                type=WSMessageTypes.NEXT_WORD,
+                data={
+                    "index": index,
+                    "word": word.data['uz']
                 }
             )
-        for question_word, index in enumerate(self.question_words):
-            async with self.lock:
-                self.answered_players = set()
-                self.current_word_id = index
-                self.current_question = question_word
-                self.current_deadline = innerdatetime.now(datetime.timezone.utc) + timedelta(seconds=self.round_duration)
 
             await asyncio.sleep(self.round_duration)
 
             async with self.lock:
-                ...
+                for player in self.players:
+                    if player['user'].username not in self.answered_players:
+                        player['seconds'] += self.round_duration
+        await self.end_game()
 
-    async def submit_answer(self, user_id: str, word: str):
+
+    async def submit_answer(self, ws: WebSocket, username: str, word: str):
         async with self.lock:
-            now = datetime.utcnow()
-            if now > self.current_deadline:
-                await self.send_to(user_id, "Too late! Time's up.")
-                return
-            if user_id in self.answered_players:
-                await self.send_to(user_id, "You already answered this round.")
+            now = datetime.datetime.now(datetime.timezone.utc)
+            if username in self.answered_players:
+                self.send_to(ws, type=WSMessageTypes.ALREADY_ANSWERED)
                 return
 
-            if word.lower() == self.current_word.lower():
-                self.players[user_id]["score"] += 1
-                self.answered_players.add(user_id)
-                await self.send_to(user_id, "Correct! You got 1 point.")
+            player = next((p for p in self.players if p["user"].username == username), None)
+            if not player:
+                return
+
+            if word.lower() in self.current_word['en']:
+                player["point"] += 1
+                player['seconds'] += (now - self.current_deadline).seconds
+                self.answered_players.add(username)
+                self.send_to(ws, type=WSMessageTypes.CORRECT_ANSWER)
             else:
-                await self.send_to(user_id, "Incorrect.")
+                self.send_to(ws, type=WSMessageTypes.INCORRECT_ANSWER)
+                player['seconds'] += (now - self.current_deadline).seconds
+                self.answered_players.add(username)
 
     async def end_game(self):
         self.started = False
-        sorted_scores = sorted(self.players.items(), key=lambda x: x[1]["score"], reverse=True)
-        winner = sorted_scores[0][1]["username"] if sorted_scores else "No one"
+        players = [{
+            "user": {
+                "id": player['user'].id,
+                "name": player['user'].name,
+                "username": player['user'].username
+            },
+            "point": player['point'],
+            "seconds": player['seconds']
+        } for player in self.players]
+        sorted_players = sorted(players, key=lambda x: (-x["point"], x["seconds"]))
+        self.broadcast(
+            type=WSMessageTypes.END_GAME,
+            data={
+                "result": sorted_players
+            }
+        )
+        GAMES.pop(self.owner.username)
         if self.running_task:
             self.running_task.cancel()
-
-    async def broadcast(self, type: str, data: Dict):
-        for player in self.players:
-            await self.send_to(
-                player,
-                type=type,
-                data=data
-            )
-
-    async def send_to(self, player, type: str, data: Dict):
-        ws: WebSocket = player['ws']
-        try:
-            await ws.send_json(
-                {
-                    'type': type,
-                    'data': data
-                }
-            )
-        except:
-            pass

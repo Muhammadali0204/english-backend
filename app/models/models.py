@@ -1,6 +1,6 @@
 from tortoise import fields, models
 
-from app.core.enums import FriendshipStatus, GameStatus
+from app.core.enums import FriendshipStatus
 
 
 class User(models.Model):
@@ -20,7 +20,7 @@ class Word(models.Model):
         schmea={
             "type": "object",
             "properties": {
-                "en": {"type": "array", 'items': {'type': 'string'}},
+                "en": {"type": "array", "items": {"type": "string"}},
                 "uz": {"type": "array", "items": {"type": "string"}},
             },
             "required": ["en", "uz"],

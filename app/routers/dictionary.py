@@ -60,8 +60,5 @@ async def mark_completed_unit(
         )
     user.completed_unit = absolute_unit
     await user.save()
-    
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content="Succesful"
-    )
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content="Succesful")

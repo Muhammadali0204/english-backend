@@ -1,14 +1,15 @@
 from typing import List
-from fastapi import status, APIRouter
+from fastapi import Query, APIRouter
 from fastapi.responses import JSONResponse
 
+from app.core.config import CONNECTION_MANAGER
 from app.core.deps import CurrentUserDep
-from app.core.enums import FriendshipStatus
+from app.core.enums import FriendshipStatus, WSMessageTypes
 from app.models.models import Friendship, User
 
 from tortoise.expressions import Q
 
-from app.schemas.friends_schema import OutPutRequest, OutPutUser
+from app.schemas.friends_schema import OutPutMyRequest, OutPutRequest, OutPutUser
 
 
 router = APIRouter()
@@ -16,9 +17,13 @@ router = APIRouter()
 
 @router.get("/all", response_model=List[OutPutUser])
 async def get_friends(user: CurrentUserDep):
-    friendships = await Friendship.filter(
-        Q(requester=user) | Q(receiver=user), status=FriendshipStatus.accepted
-    ).prefetch_related("requester", "receiver").all()
+    friendships = (
+        await Friendship.filter(
+            Q(requester=user) | Q(receiver=user), status=FriendshipStatus.accepted
+        )
+        .prefetch_related("requester", "receiver")
+        .all()
+    )
 
     friends = []
     for friendship in friendships:
@@ -31,15 +36,28 @@ async def get_friends(user: CurrentUserDep):
 
 @router.get("/requests", response_model=List[OutPutRequest])
 async def get_friends_requests(user: CurrentUserDep):
-    requests = await Friendship.filter(
-        receiver=user, status=FriendshipStatus.pending
-    ).prefetch_related("requester").all()
+    requests = (
+        await Friendship.filter(receiver=user, status=FriendshipStatus.pending)
+        .prefetch_related("requester")
+        .all()
+    )
 
     return requests
 
 
-@router.post("/send-request/{user_id}")
-async def send_friend_request(user: CurrentUserDep, user_id: int):
+@router.get("/my-requests", response_model=List[OutPutMyRequest])
+async def get_friends_requests(user: CurrentUserDep):
+    myrequests = (
+        await Friendship.filter(requester=user, status=FriendshipStatus.pending)
+        .prefetch_related("receiver")
+        .all()
+    )
+
+    return myrequests
+
+
+@router.post("/send-request")
+async def send_friend_request(user: CurrentUserDep, user_id: int = Query(...)):
     if user.id == user_id:
         return JSONResponse(
             status_code=400,
@@ -56,29 +74,25 @@ async def send_friend_request(user: CurrentUserDep, user_id: int):
             status_code=400, content={"error": "Friend request already exists."}
         )
 
-    reciever = await Friendship.filter(id=user_id).first()
-    if not reciever:
+    receiver = await User.get_or_none(id=user_id)
+    if not receiver:
         return JSONResponse(status_code=404, content={"error": "User not found."})
 
     await Friendship.create(
-        requester=user, receiver=reciever, status=FriendshipStatus.pending
-    )
-    return JSONResponse(
-        status_code=201,
-        content='OK'
+        requester=user, receiver=receiver, status=FriendshipStatus.pending
     )
 
+    await CONNECTION_MANAGER.send_message(
+        receiver.username, type=WSMessageTypes.RECEIVE_FRIENDSHIP_REQUEST, data={}
+    )
 
-@router.post("/cancel-request/{user_id}")
-async def cancel_friend_request(user: CurrentUserDep, user_id: int):
-    if user.id == user_id:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "You cannot cancel a friend request to yourself."},
-        )
+    return JSONResponse(status_code=201, content="OK")
 
+
+@router.post("/cancel-request")
+async def cancel_friend_request(user: CurrentUserDep, request_id: int = Query(...)):
     friendship = await Friendship.filter(
-        requester=user, receiver_id=user_id, status=FriendshipStatus.pending
+        id=request_id, status=FriendshipStatus.pending
     ).first()
 
     if not friendship:
@@ -86,15 +100,16 @@ async def cancel_friend_request(user: CurrentUserDep, user_id: int):
             status_code=404, content={"error": "Friend request not found."}
         )
 
+    receiver: User = await friendship.receiver
     await friendship.delete()
-    return JSONResponse(
-        status_code=204,
-        content='OK'
+    await CONNECTION_MANAGER.send_message(
+        receiver.username, type=WSMessageTypes.USER_CANCEL_REQUEST
     )
+    return JSONResponse(status_code=200, content="OK")
 
 
-@router.post("/accept-request/{request_id}")
-async def accept_friend_request(user: CurrentUserDep, request_id: int):
+@router.post("/accept-request")
+async def accept_friend_request(user: CurrentUserDep, request_id: int = Query(...)):
     friendship = await Friendship.filter(
         id=request_id, receiver=user, status=FriendshipStatus.pending
     ).first()
@@ -105,15 +120,21 @@ async def accept_friend_request(user: CurrentUserDep, request_id: int):
         )
 
     friendship.status = FriendshipStatus.accepted
-    await friendship.save()
-    return JSONResponse(
-        status_code=200,
-        content='OK'
+    requester: User = await friendship.requester
+    await CONNECTION_MANAGER.send_message(
+        requester.username, type=WSMessageTypes.ACCEPT_REQUEST,
+        data={
+            "user": {
+                "name": user.name
+            }
+        }
     )
+    await friendship.save()
+    return JSONResponse(status_code=200, content="OK")
 
 
-@router.post("/reject-request/{request_id}")
-async def reject_friend_request(user: CurrentUserDep, request_id: int):
+@router.post("/reject-request")
+async def reject_friend_request(user: CurrentUserDep, request_id: int = Query(...)):
     friendship = await Friendship.filter(
         id=request_id, receiver=user, status=FriendshipStatus.pending
     ).first()
@@ -124,14 +145,19 @@ async def reject_friend_request(user: CurrentUserDep, request_id: int):
         )
 
     await friendship.delete()
-    return JSONResponse(
-        status_code=204,
-        content='OK'
+    receiver: User = await friendship.receiver
+    await CONNECTION_MANAGER.send_message(
+        receiver.username, type=WSMessageTypes.REJECT_REQUEST, data={
+            "user": {
+                "name": receiver.name
+            }
+        }
     )
+    return JSONResponse(status_code=200, content="OK")
 
 
-@router.post("/unfriend/{user_id}")
-async def unfriend(user: CurrentUserDep, user_id: int):
+@router.post("/unfriend")
+async def unfriend(user: CurrentUserDep, user_id: int = Query()):
     if user.id == user_id:
         return JSONResponse(
             status_code=400, content={"error": "You cannot unfriend yourself."}
@@ -148,38 +174,26 @@ async def unfriend(user: CurrentUserDep, user_id: int):
 
     await friendship.delete()
     return JSONResponse(
-        status_code=204,
-        content='OK'
-    )
-
-
-@router.post("/block/{user_id}")
-async def block_user(user: CurrentUserDep, user_id: int):
-    if user.id == user_id:
-        return JSONResponse(
-            status_code=400, content={"error": "You cannot block yourself."}
-        )
-    friendship = await Friendship.filter(
-        (Q(requester=user) & Q(receiver_id=user_id))
-        | (Q(requester_id=user_id) & Q(receiver=user)),
-        status=FriendshipStatus.accepted,
-    ).first()
-
-    if not friendship:
-        return JSONResponse(status_code=404, content={"error": "Friendship not found."})
-
-    friendship.status = FriendshipStatus.blocked
-    await friendship.save()
-
-    return JSONResponse(
-        status_code=204,
-        content='OK'
+        status_code=200,
+        content="OK"
     )
 
 
 @router.get("/search", response_model=List[OutPutUser])
-async def search_friends(user: CurrentUserDep, username: str):
-    users = (
-        await User.filter(username__icontains=username).exclude(id=user.id).limit(10)
-    )
+async def search_friends(user: CurrentUserDep, query: str = Query(...)):
+    friendship_users = await Friendship.filter(
+        Q(requester_id=user.id) | Q(receiver_id=user.id)
+    ).values_list("requester_id", "receiver_id")
+
+    related_ids = set()
+    for requester_id, receiver_id in friendship_users:
+        related_ids.add(requester_id)
+        related_ids.add(receiver_id)
+
+    related_ids.add(user.id)
+
+    users = await User.filter(
+        username__icontains=query
+    ).exclude(id__in=related_ids).limit(10)
+
     return users

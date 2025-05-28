@@ -101,8 +101,7 @@ async def join_game(user: CurrentUserDep, username: str = Query(..., alias="game
         game_session.players.append({
             "user": user,
             "point": 0,
-            "ws": CONNECTION_MANAGER.active_connections[user.username],
-            "seconds": 0
+            "ws": CONNECTION_MANAGER.active_connections[user.username]
         })
         users_status = []
         for player in game_session.players:
@@ -111,6 +110,7 @@ async def join_game(user: CurrentUserDep, username: str = Query(..., alias="game
                 type=WSMessageTypes.JOIN_PLAYER,
                 data={
                     "user": {
+                        "id": user.id,
                         "name": user.name,
                         "username": user.username
                     }

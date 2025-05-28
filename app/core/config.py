@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     UNITS_IN_ONE_BOOK: int = 30
     BOOKS_COUNT: int = 6
 
-    ROUND_DURATION: int = 20
-    ROUND_WORDS_COUNT: int = 5
+    ROUND_DURATION: int = 10
+    ROUND_WORDS_COUNT: int = 10
 
     @computed_field
     @property

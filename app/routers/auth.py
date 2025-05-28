@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from app.core.deps import CurrentUserDep
 from app.core.enums import FriendshipStatus
 from app.models.models import Friendship, User
-from app.schemas.auth_schema import ChangePasswordSchema, LoginSchema, RegisterSchema
+from app.schemas.auth_schema import ChangeNameSchema, ChangePasswordSchema, LoginSchema, RegisterSchema
 from app.core.security import create_access_token, hash_password, verify_password
 
 
@@ -66,7 +66,16 @@ async def get_current_user(user: CurrentUserDep):
 
 @router.post("/change-password", status_code=status.HTTP_200_OK)
 async def change_password(user: CurrentUserDep, credentials: ChangePasswordSchema):
-    user.password = hash_password(credentials.new_password)
+    user.password = hash_password(credentials.newPass)
+    await user.save()
+    return {
+        "message": "Succesfully changed",
+    }
+
+
+@router.post("/change-name", status_code=status.HTTP_200_OK)
+async def change_name(user: CurrentUserDep, credentials: ChangeNameSchema):
+    user.name = credentials.newName
     await user.save()
     return {
         "message": "Succesfully changed",

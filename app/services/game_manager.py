@@ -17,7 +17,7 @@ class GameSession:
         round_duration: int,
     ):
         self.players = [
-            {"user": owner, "point": 0, "ws": owner_ws, "seconds": 0}
+            {"user": owner, "point": 0, "ws": owner_ws}
         ]
         self.owner = owner
         self.words: List[Word] = words
@@ -72,11 +72,6 @@ class GameSession:
             )
 
             await asyncio.sleep(self.round_duration)
-
-            async with self.lock:
-                for player in self.players:
-                    if player['user'].username not in self.answered_players:
-                        player['seconds'] += self.round_duration
         await self.end_game()
 
 
@@ -93,12 +88,10 @@ class GameSession:
 
             if word.lower() in self.current_word['en']:
                 player["point"] += 1
-                player['seconds'] += (now - self.current_deadline).seconds
                 self.answered_players.add(username)
                 self.send_to(ws, type=WSMessageTypes.CORRECT_ANSWER)
             else:
                 self.send_to(ws, type=WSMessageTypes.INCORRECT_ANSWER)
-                player['seconds'] += (now - self.current_deadline).seconds
                 self.answered_players.add(username)
 
     async def end_game(self):
@@ -109,10 +102,9 @@ class GameSession:
                 "name": player['user'].name,
                 "username": player['user'].username
             },
-            "point": player['point'],
-            "seconds": player['seconds']
+            "point": player['point']
         } for player in self.players]
-        sorted_players = sorted(players, key=lambda x: (-x["point"], x["seconds"]))
+        sorted_players = sorted(players, key=lambda x: (-x["point"]))
         self.broadcast(
             type=WSMessageTypes.END_GAME,
             data={

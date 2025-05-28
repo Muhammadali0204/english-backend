@@ -43,6 +43,12 @@ class RegisterSchema(BaseModel):
 
 
 class ChangePasswordSchema(BaseModel):
-    new_password: str = Field(
+    newPass: str = Field(
         ..., min_length=6, max_length=100, description="New password"
+    )
+
+
+class ChangeNameSchema(BaseModel):
+    newName: str = Field(
+        ..., min_length=3, max_length=50, description="New name"
     )

@@ -1,12 +1,12 @@
 services:
-  backend:
+  english_backend:
     build: .
     container_name: ${PROJECT_NAME}_backend
     restart: always
     ports:
       - "8004:8000"
     depends_on:
-      - db
+      - english_db
     env_file:
       - .env
     volumes:
@@ -15,7 +15,7 @@ services:
     networks:
       - english
 
-  db:
+  english_db:
     image: postgres:17
     container_name: ${PROJECT_NAME}_db
     environment:

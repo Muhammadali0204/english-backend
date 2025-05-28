@@ -1,7 +1,5 @@
 from typing import List
-from pydantic import BaseModel, Field
-
-from app.core.config import settings
+from pydantic import BaseModel
 
 
 class InputUsers(BaseModel):

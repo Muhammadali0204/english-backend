@@ -2,10 +2,10 @@ from typing import List
 from fastapi import Query, APIRouter
 from fastapi.responses import JSONResponse
 
-from app.core.config import CONNECTION_MANAGER
 from app.core.deps import CurrentUserDep
-from app.core.enums import FriendshipStatus, WSMessageTypes
 from app.models.models import Friendship, User
+from app.core.config import CONNECTION_MANAGER
+from app.core.enums import FriendshipStatus, WSMessageTypes
 
 from tortoise.expressions import Q
 

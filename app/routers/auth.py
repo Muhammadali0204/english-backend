@@ -4,8 +4,8 @@ from fastapi.responses import JSONResponse
 from app.core.deps import CurrentUserDep
 from app.core.enums import FriendshipStatus
 from app.models.models import Friendship, User
-from app.schemas.auth_schema import ChangeNameSchema, ChangePasswordSchema, LoginSchema, RegisterSchema
 from app.core.security import create_access_token, hash_password, verify_password
+from app.schemas.auth_schema import ChangeNameSchema, ChangePasswordSchema, LoginSchema, RegisterSchema
 
 
 router = APIRouter()

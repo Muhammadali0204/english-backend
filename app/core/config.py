@@ -38,8 +38,6 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 180
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
 
-    LOCAL_HOST: str = "http://localhost:8080"
-
 
 settings = Settings()
 

@@ -1,9 +1,9 @@
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Query, status
 
+from app.models.models import Word
 from app.core.config import settings
 from app.core.deps import CurrentUserDep
-from app.models.models import Word
 
 
 router = APIRouter()

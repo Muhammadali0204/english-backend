@@ -1,9 +1,5 @@
-import asyncio
-import app.routers
-from tkinter import NO
 from fastapi import Query, status, APIRouter
 from fastapi.responses import JSONResponse
-from tortoise.expressions import RawSQL
 
 from app.core.config import CONNECTION_MANAGER, GAMES, settings
 from app.core.deps import CurrentUserDep

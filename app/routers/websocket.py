@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Query, WebSocket
 
+from app.core.enums import WSMessageTypes
 from app.core.config import CONNECTION_MANAGER, GAMES
 from app.core.deps import get_current_user_from_ws_token
-from app.core.enums import WSMessageTypes
 from app.services.game_manager import GameSession
 
 

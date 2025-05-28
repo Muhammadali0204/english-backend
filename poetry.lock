@@ -1270,6 +1270,7 @@ description = "Support for the standard curses module on Windows"
 optional = false
 python-versions = "*"
 groups = ["main"]
+markers = "sys_platform == \"win32\""
 files = [
     {file = "windows_curses-2.4.1-cp310-cp310-win32.whl", hash = "sha256:53d711e07194d0d3ff7ceff29e0955b35479bc01465d46c3041de67b8141db2f"},
     {file = "windows_curses-2.4.1-cp310-cp310-win_amd64.whl", hash = "sha256:325439cd4f37897a1de8a9c068a5b4c432f9244bf9c855ee2fbeb3fa721a770c"},
@@ -1292,4 +1293,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12"
-content-hash = "e86920712a861550803147a0fd76f1d1c15dd7ba4bcc9811f3f93950779543be"
+content-hash = "094dd4fba8bdc4bc509c15d2fb6e4d67a6d222cc7a9e0bf36826e2916272f163"

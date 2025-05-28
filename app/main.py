@@ -20,4 +20,4 @@ app.add_middleware(
 
 register_tortoise(app, config=DATABASE_CONFIG, generate_schemas=True)
 
-app.include_router(router, prefix="/api")
+app.include_router(router)

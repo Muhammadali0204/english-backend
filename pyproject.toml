@@ -1,9 +1,8 @@
 [project]
-name = "backend"
+name = "english-words-backend"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Muhammadali"},
     {name = "Jasurbek"}
 ]
 readme = "README.md"

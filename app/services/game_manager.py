@@ -77,7 +77,6 @@ class GameSession:
 
     async def submit_answer(self, ws: WebSocket, username: str, word: str):
         async with self.lock:
-            now = datetime.datetime.now(datetime.timezone.utc)
             if username in self.answered_players:
                 self.send_to(ws, type=WSMessageTypes.ALREADY_ANSWERED)
                 return
